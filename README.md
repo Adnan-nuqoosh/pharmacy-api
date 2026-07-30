@@ -120,7 +120,7 @@ POST /api/admin/login
 
 Default credentials from the seeder:
 ```
-admin@abwabalkheir.com / Admin@12345
+admin@abwabalkheir.com / 123456
 ```
 **Change this before deploying.**
 
