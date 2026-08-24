@@ -103,7 +103,13 @@ class AdminOrderController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Order status updated to '{$newStatus}'.",
-            'data'    => ['order' => $order->fresh()->load('items')],
+            'data'    => [
+                'order' => $order->fresh()->load(
+                    'items',
+                    'address',
+                    'user:id,name,email,phone',
+                ),
+            ],
         ]);
     }
 

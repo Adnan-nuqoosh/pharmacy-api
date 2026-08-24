@@ -90,10 +90,10 @@ class AdminBannerController extends Controller
 
     private function validated(Request $request, bool $isUpdate): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
-            'title'      => [$req, 'string', 'max:255'],
+            'title'      => [...$req, 'string', 'max:255'],
             'subtitle'   => ['nullable', 'string', 'max:255'],
             'image'      => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'link'       => ['nullable', 'string', 'max:255'],

@@ -142,14 +142,14 @@ class AdminProductController extends Controller
 
     private function validated(Request $request, bool $isUpdate, ?int $productId = null): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
-            'category_id'      => [$req, 'exists:categories,id'],
-            'name'             => [$req, 'string', 'max:255'],
+            'category_id'      => [...$req, 'exists:categories,id'],
+            'name'             => [...$req, 'string', 'max:255'],
             'slug'             => ['sometimes', 'string', 'max:255', Rule::unique('products')->ignore($productId)],
             'description'      => ['nullable', 'string'],
-            'price'            => [$req, 'numeric', 'min:0'],
+            'price'            => [...$req, 'numeric', 'min:0'],
             'discount_percent' => ['sometimes', 'integer', 'min:0', 'max:90'],
             'image'            => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'rating'           => ['sometimes', 'numeric', 'min:0', 'max:5'],

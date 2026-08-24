@@ -93,15 +93,15 @@ class AddressController extends Controller
      */
     private function validated(Request $request, bool $isUpdate): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
             'label'      => ['sometimes', 'string', 'max:50'],
-            'name'       => [$req, 'string', 'max:100'],
-            'phone'      => [$req, 'string', 'max:20'],
-            'city'       => [$req, 'string', 'max:100'],
+            'name'       => [...$req, 'string', 'max:100'],
+            'phone'      => [...$req, 'string', 'max:20'],
+            'city'       => [...$req, 'string', 'max:100'],
             'area'       => ['nullable', 'string', 'max:150'],
-            'street'     => [$req, 'string', 'max:200'],
+            'street'     => [...$req, 'string', 'max:200'],
             'building'   => ['nullable', 'string', 'max:200'],
             'is_default' => ['sometimes', 'boolean'],
         ]);

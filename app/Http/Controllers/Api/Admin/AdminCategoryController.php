@@ -134,10 +134,10 @@ class AdminCategoryController extends Controller
 
     private function validated(Request $request, bool $isUpdate, ?int $categoryId = null): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
-            'name'       => [$req, 'string', 'max:100'],
+            'name'       => [...$req, 'string', 'max:100'],
             'slug'       => ['sometimes', 'string', 'max:120', Rule::unique('categories')->ignore($categoryId)],
             'icon'       => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],

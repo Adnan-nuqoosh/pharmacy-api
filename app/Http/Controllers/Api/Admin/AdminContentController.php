@@ -369,11 +369,11 @@ class AdminContentController extends Controller
 
     private function doctorRules(Request $request, bool $isUpdate): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
-            'name'             => [$req, 'string', 'max:150'],
-            'speciality'       => [$req, 'string', 'max:150'],
+            'name'             => [...$req, 'string', 'max:150'],
+            'speciality'       => [...$req, 'string', 'max:150'],
             'qualification'    => ['nullable', 'string', 'max:200'],
             'about'            => ['nullable', 'string'],
             'image'            => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
@@ -386,14 +386,14 @@ class AdminContentController extends Controller
 
     private function equipmentRules(Request $request, bool $isUpdate, ?int $id = null): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
-            'name'            => [$req, 'string', 'max:255'],
+            'name'            => [...$req, 'string', 'max:255'],
             'slug'            => ['sometimes', 'string', 'max:255', Rule::unique('equipment')->ignore($id)],
             'description'     => ['nullable', 'string'],
             'image'           => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'rent_per_day'    => [$req, 'numeric', 'min:0'],
+            'rent_per_day'    => [...$req, 'numeric', 'min:0'],
             'deposit'         => ['sometimes', 'numeric', 'min:0'],
             'available_units' => ['sometimes', 'integer', 'min:0'],
             'is_active'       => ['sometimes', 'boolean'],
