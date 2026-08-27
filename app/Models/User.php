@@ -31,24 +31,17 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_admin'          => 'boolean',
         ];
     }
 
-    /**
-     * SECURITY: sirf is_admin=true wale users Filament panel (/admin) mein login kar sakte hain.
-     */
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->is_admin === true;
     }
 
-    // ---------- Relations ----------
-
-    /**
-     * Admin dashboard ke users list/detail ke liye zaroori.
-     */
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);

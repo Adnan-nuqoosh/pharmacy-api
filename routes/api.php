@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\EquipmentController;
 use App\Http\Controllers\Api\FaqController;
+use App\Http\Controllers\Api\FirebaseAuthController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PrescriptionController;
 use App\Http\Controllers\Api\ProductController;
@@ -32,9 +33,10 @@ use Illuminate\Support\Facades\Route;
 
 // ---------- Auth ----------
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:5,1');
-    Route::post('/google',   [SocialAuthController::class, 'google'])->middleware('throttle:10,1'); // "Sign up with Google"
+    Route::post('/register',   [AuthController::class, 'register']);
+    Route::post('/login',      [AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/google',     [SocialAuthController::class, 'google'])->middleware('throttle:10,1'); // "Sign up with Google"
+    Route::post('/otp/verify', [FirebaseAuthController::class, 'verify'])->middleware('throttle:10,1'); // Sign Up + Login via Firebase OTP
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -79,11 +81,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/addresses/{address}', [AddressController::class, 'destroy']);
 
     // Checkout / Orders / Billing
-    Route::post('/checkout',             [OrderController::class, 'checkout']);
-    Route::get('/orders',                [OrderController::class, 'index']);
-    Route::get('/orders/{order}',        [OrderController::class, 'show']);
+    Route::post('/checkout',               [OrderController::class, 'checkout']);
+    Route::get('/orders',                  [OrderController::class, 'index']);
+    Route::get('/orders/{order}',          [OrderController::class, 'show']);
     Route::patch('/orders/{order}/cancel', [OrderController::class, 'cancel']);
-    Route::get('/billing',               [OrderController::class, 'billing']); // Profile > Billing
+    Route::get('/billing',                 [OrderController::class, 'billing']); // Profile > Billing
 
     // Prescriptions (Rx Upload — poora flow)
     Route::post('/prescriptions',                  [PrescriptionController::class, 'store']);
@@ -98,14 +100,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-reviews',               [ReviewController::class, 'myReviews']);
 
     // Doctor appointments
-    Route::post('/appointments',                     [DoctorController::class, 'book']);
-    Route::get('/appointments',                      [DoctorController::class, 'myAppointments']);
-    Route::get('/appointments/{appointment}',        [DoctorController::class, 'showAppointment']);
-    Route::patch('/appointments/{appointment}/cancel',[DoctorController::class, 'cancel']);
+    Route::post('/appointments',                       [DoctorController::class, 'book']);
+    Route::get('/appointments',                        [DoctorController::class, 'myAppointments']);
+    Route::get('/appointments/{appointment}',          [DoctorController::class, 'showAppointment']);
+    Route::patch('/appointments/{appointment}/cancel', [DoctorController::class, 'cancel']);
 
     // Equipment rentals
-    Route::get('/equipment/rentals/my',            [EquipmentController::class, 'myRentals']);
-    Route::post('/equipment/rentals',              [EquipmentController::class, 'rent']);
+    Route::get('/equipment/rentals/my',                [EquipmentController::class, 'myRentals']);
+    Route::post('/equipment/rentals',                  [EquipmentController::class, 'rent']);
     Route::patch('/equipment/rentals/{rental}/cancel', [EquipmentController::class, 'cancelRental']);
 
     // Profile
@@ -186,8 +188,8 @@ Route::prefix('admin')->group(function () {
         Route::post('/doctors/{doctor}/slots', [AdminContentController::class, 'createSlots']);
         Route::delete('/doctor-slots/{slot}',  [AdminContentController::class, 'deleteSlot']);
 
-        Route::get('/appointments',                       [AdminContentController::class, 'appointments']);
-        Route::patch('/appointments/{appointment}/status',[AdminContentController::class, 'updateAppointmentStatus']);
+        Route::get('/appointments',                        [AdminContentController::class, 'appointments']);
+        Route::patch('/appointments/{appointment}/status', [AdminContentController::class, 'updateAppointmentStatus']);
 
         // ---- Equipment & Rentals ----
         Route::get('/equipment',                [AdminContentController::class, 'equipment']);
@@ -200,14 +202,14 @@ Route::prefix('admin')->group(function () {
         Route::patch('/rentals/{rental}/status', [AdminContentController::class, 'updateRentalStatus']);
 
         // ---- FAQ ----
-        Route::get('/faqs',        [AdminContentController::class, 'faqs']);
-        Route::post('/faqs',       [AdminContentController::class, 'storeFaq']);
-        Route::patch('/faqs/{faq}',[AdminContentController::class, 'updateFaq']);
+        Route::get('/faqs',         [AdminContentController::class, 'faqs']);
+        Route::post('/faqs',        [AdminContentController::class, 'storeFaq']);
+        Route::patch('/faqs/{faq}', [AdminContentController::class, 'updateFaq']);
         Route::delete('/faqs/{faq}',[AdminContentController::class, 'destroyFaq']);
 
         // ---- Reviews (moderation) ----
-        Route::get('/reviews',           [AdminContentController::class, 'reviews']);
-        Route::patch('/reviews/{review}/toggle-approve', [AdminContentController::class, 'toggleApproveReview']);
-        Route::delete('/reviews/{review}',[AdminContentController::class, 'destroyReview']);
+        Route::get('/reviews',                            [AdminContentController::class, 'reviews']);
+        Route::patch('/reviews/{review}/toggle-approve',  [AdminContentController::class, 'toggleApproveReview']);
+        Route::delete('/reviews/{review}',                [AdminContentController::class, 'destroyReview']);
     });
 });
