@@ -31,7 +31,6 @@ class AddressController extends Controller
 
         $data['user_id'] = $request->user()->id;
 
-        // Pehla address automatically default
         if (! Address::where('user_id', $data['user_id'])->exists()) {
             $data['is_default'] = true;
         }
@@ -47,9 +46,7 @@ class AddressController extends Controller
     }
 
     /**
-     * PATCH /api/addresses/{address} — PARTIAL update.
-     * FIX: ab sirf wohi fields bhejein jo change karni hain,
-     * e.g. { "is_default": true } bhi chalega.
+     * PATCH /api/addresses/{address} — PARTIAL update (sirf change hone wale fields bhejein).
      */
     public function update(Request $request, Address $address): JsonResponse
     {
@@ -75,7 +72,6 @@ class AddressController extends Controller
         $wasDefault = $address->is_default;
         $address->delete();
 
-        // Default address delete hua to koi aur address default bana do
         if ($wasDefault) {
             Address::where('user_id', $request->user()->id)
                 ->latest()
@@ -88,20 +84,24 @@ class AddressController extends Controller
     // ---------- helpers ----------
 
     /**
-     * store  => required rules
-     * update => sometimes|required (partial update allowed)
+     * store  => sab fields required
+     * update => sab fields "sometimes|required" (bheji jaye to zaroori, na bheje to skip)
+     *
+     * FIX: $req ek single array hai (dead code aur duplicate keys hata diye).
+     * Array mein spread (...$req) use karte hain taake 'sometimes' aur 'required'
+     * dono rules ek saath lag jayein jab update ho.
      */
     private function validated(Request $request, bool $isUpdate): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? ['sometimes', 'required'] : ['required'];
 
         return $request->validate([
             'label'      => ['sometimes', 'string', 'max:50'],
-            'name'       => [$req, 'string', 'max:100'],
-            'phone'      => [$req, 'string', 'max:20'],
-            'city'       => [$req, 'string', 'max:100'],
+            'name'       => [...$req, 'string', 'max:100'],
+            'phone'      => [...$req, 'string', 'max:20'],
+            'city'       => [...$req, 'string', 'max:100'],
             'area'       => ['nullable', 'string', 'max:150'],
-            'street'     => [$req, 'string', 'max:200'],
+            'street'     => [...$req, 'string', 'max:200'],
             'building'   => ['nullable', 'string', 'max:200'],
             'is_default' => ['sometimes', 'boolean'],
         ]);
@@ -112,9 +112,6 @@ class AddressController extends Controller
         abort_if($address->user_id !== $request->user()->id, 403, 'Ye address aapka nahi hai.');
     }
 
-    /**
-     * Agar ye address default banaya gaya hai to baqi sab ka default hata do.
-     */
     private function syncDefault(Request $request, Address $address): void
     {
         if ($address->is_default) {
