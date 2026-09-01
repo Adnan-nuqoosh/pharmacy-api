@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\EquipmentController;
 use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\FirebaseAuthController;
+use App\Http\Controllers\Api\ForgotPasswordController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PrescriptionController;
 use App\Http\Controllers\Api\ProductController;
@@ -37,6 +38,9 @@ Route::prefix('auth')->group(function () {
     Route::post('/login',      [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/google',     [SocialAuthController::class, 'google'])->middleware('throttle:10,1'); // "Sign up with Google"
     Route::post('/otp/verify', [FirebaseAuthController::class, 'verify'])->middleware('throttle:10,1'); // Sign Up + Login via Firebase OTP
+
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendCode'])->middleware('throttle:3,1'); // Forgot Password step 1
+    Route::post('/reset-password',  [ForgotPasswordController::class, 'reset'])->middleware('throttle:5,1');    // Forgot Password step 2
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
