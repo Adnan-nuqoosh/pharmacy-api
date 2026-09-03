@@ -2,8 +2,8 @@
     "openapi": "3.0.3",
     "info": {
         "title": "Abwab Al Kheir Pharmacy - CUSTOMER API",
-        "description": "Mobile app ki tamam APIs (Figma design ke mutabiq)",
-        "version": "3.0.0"
+        "description": "Mobile app ki tamam APIs (Figma design ke mutabiq)\n\n## Response Format\nSab responses `{success, message, data}` shape mein hain. Errors (401/403/404/422/429/500) mein extra `errors: []` array bhi hota hai — Laravel ke built-in errors (validation, unauthenticated, etc.) bhi isi standard shape mein convert kiye ja chuke hain, controllers ke bahar bhi.",
+        "version": "4.0.0"
     },
     "servers": [
         {
@@ -1719,6 +1719,172 @@
                     }
                 }
             }
+        },
+        "/auth/otp/verify": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Firebase Phone OTP — Sign Up + Login (ek hi endpoint)",
+                "description": "Mobile app Firebase SDK se OTP bhejta/verify karta hai, phir mila hua id_token yahan bhejta hai. 'name' sirf naye phone number (signup) ke liye zaroori hai.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id_token": {
+                                        "type": "string",
+                                        "description": "Firebase se mila ID token",
+                                        "example": "eyJhbGciOi..."
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "description": "Naye user ke liye zaroori (signup)",
+                                        "example": "Ahmed Kamal"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "ahmed@example.com"
+                                    }
+                                },
+                                "required": [
+                                    "id_token"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful (purana phone number)"
+                    },
+                    "201": {
+                        "description": "Account created (naya phone number)"
+                    },
+                    "401": {
+                        "description": "Token invalid/expired",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Naya user hai lekin name nahi diya",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/forgot-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Forgot Password — Step 1: code mangwana",
+                "description": "Email par 6-digit code bhejta hai (15 min valid). Security ke liye response hamesha same hota hai, chahe email exist kare ya na kare.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "example": "user@example.com"
+                                    }
+                                },
+                                "required": [
+                                    "email"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Code bhej diya gaya (ya email exist nahi karti, dono cases mein same response)"
+                    },
+                    "429": {
+                        "description": "Bohot dafa try kiya (rate limited)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Forgot Password — Step 2: code + naya password",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "example": "user@example.com"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "483920"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "NayaPassword123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "NayaPassword123"
+                                    }
+                                },
+                                "required": [
+                                    "email",
+                                    "code",
+                                    "password",
+                                    "password_confirmation"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset ho gaya, purane tokens revoke ho gaye"
+                    },
+                    "422": {
+                        "description": "Code ghalat/expire, ya koi request nahi ki gayi thi",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -1727,6 +1893,53 @@
                 "type": "http",
                 "scheme": "bearer",
                 "description": "Login se mila token"
+            }
+        },
+        "schemas": {
+            "ErrorResponse": {
+                "type": "object",
+                "description": "Har error (401/403/404/422/429/500) isi shape mein aata hai — Laravel ke built-in errors bhi.",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "The given data was invalid."
+                    },
+                    "data": {
+                        "type": "object",
+                        "nullable": true,
+                        "example": null
+                    },
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "The email has already been taken."
+                        ]
+                    }
+                }
+            },
+            "SuccessResponse": {
+                "type": "object",
+                "description": "Har successful response (200/201) isi shape mein aata hai.",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Logged in successfully."
+                    },
+                    "data": {
+                        "type": "object"
+                    }
+                }
             }
         }
     }

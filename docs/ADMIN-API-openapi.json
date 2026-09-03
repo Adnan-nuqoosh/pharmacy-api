@@ -2,8 +2,8 @@
     "openapi": "3.0.3",
     "info": {
         "title": "Abwab Al Kheir Pharmacy - ADMIN API",
-        "description": "Admin dashboard APIs — frontend developer ke liye",
-        "version": "2.0.0"
+        "description": "Admin dashboard APIs — frontend developer ke liye\n\n## Response Format\nSab responses `{success, message, data}` shape mein hain. Errors (401/403/404/422/429/500) mein extra `errors: []` array bhi hota hai.",
+        "version": "3.0.0"
     },
     "servers": [
         {
@@ -2648,6 +2648,36 @@
                 "type": "http",
                 "scheme": "bearer",
                 "description": "Admin login se mila token"
+            }
+        },
+        "schemas": {
+            "ErrorResponse": {
+                "type": "object",
+                "description": "Har error (401/403/404/422/429/500) isi shape mein aata hai — Laravel ke built-in errors bhi.",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "The given data was invalid."
+                    },
+                    "data": {
+                        "type": "object",
+                        "nullable": true,
+                        "example": null
+                    },
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "The name field is required."
+                        ]
+                    }
+                }
             }
         }
     }
