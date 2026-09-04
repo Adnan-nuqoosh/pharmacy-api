@@ -3,7 +3,7 @@
 Laravel backend for the Abwab Al Kheir Pharmacy mobile app and admin dashboard.
 Built from the Figma design — covers the customer app, an admin REST API, and a ready-made admin panel (Filament).
 
-**112 endpoints** — 51 customer + 61 admin.
+**113 endpoints** — 52 customer + 61 admin.
 
 ---
 
@@ -87,7 +87,7 @@ Two OpenAPI 3.0 specs are in the [`docs/`](docs) folder. Import either into **Ap
 
 | File | Scope |
 |---|---|
-| `docs/CUSTOMER-API-openapi.json` | Mobile app — 51 endpoints |
+| `docs/CUSTOMER-API-openapi.json` | Mobile app — 52 endpoints |
 | `docs/ADMIN-API-openapi.json` | Admin dashboard — 61 endpoints |
 
 **Importing into Apidog:** Settings → Import Data → OpenAPI/Swagger → select the file → Confirm.
@@ -118,14 +118,17 @@ POST /api/auth/otp/verify      # Firebase Phone OTP — signup AND login in one 
 
 Accounts created via `/auth/otp/verify` have no password (`password` is nullable) — Firebase handles verification instead. Accounts created via `/auth/register` use the normal email/password flow. Both can log in with `/auth/login` if a password is set.
 
-**Forgot password** (email/password accounts only — OTP accounts don't need one):
+**Forgot password** (email/password accounts only — OTP accounts don't need one). Three separate steps, matching the app's UI flow (Email → Enter OTP → New Password):
 
 ```http
-POST /api/auth/forgot-password    # { "email": "..." } -> emails a 6-digit code, valid 15 min
-POST /api/auth/reset-password     # { "email", "code", "password", "password_confirmation" }
+POST /api/auth/forgot-password    # Step 1: { "email" } -> emails a 6-digit code, valid 15 min
+POST /api/auth/verify-otp         # Step 2: { "email", "code" } -> returns a reset_token
+POST /api/auth/reset-password     # Step 3: { "email", "reset_token", "password", "password_confirmation" }
 ```
 
-The response is identical whether or not the email exists, to prevent user enumeration. Locally, `MAIL_MAILER=log` means the code is written to `storage/logs/laravel.log` instead of being emailed — search for "reset code" to find it while testing.
+The 6-digit code from Step 1 is single-use — the moment it's verified in Step 2, it's replaced by a `reset_token` (valid 10 minutes) that Step 3 requires instead. The original code cannot be reused for Step 3, even if intercepted.
+
+`forgot-password`'s response is identical whether or not the email exists, to prevent user enumeration. Locally, `MAIL_MAILER=log` means the code is written to `storage/logs/laravel.log` instead of being emailed — search for "reset code" to find it while testing.
 
 ### Admin
 
@@ -145,7 +148,7 @@ Admin access is protected at two levels: `/api/admin/login` rejects non-admin us
 
 | Area | Endpoints |
 |---|---|
-| **Auth** | register, login, google, otp/verify, forgot-password, reset-password, me, logout |
+| **Auth** | register, login, google, otp/verify, forgot-password, verify-otp, reset-password, me, logout |
 | **Home** | banners |
 | **Catalog** | categories, category detail, products (search/filter/sort), product detail |
 | **Reviews** | list with star breakdown, create, update, delete, my-reviews |
@@ -187,7 +190,7 @@ Enforced server-side — the frontend doesn't need to replicate them, but should
 - **Appointments** — slots are locked during booking, so two users cannot book the same slot. Cancelling frees the slot again.
 - **Categories** — a category containing products cannot be deleted (returns 422) to prevent cascade-deleting the products.
 - **Prescriptions** — for the `with_prescription` flow, prescription images and both sides of the Emirates ID are mandatory (UAE regulatory requirement).
-- **Password reset codes** — single-use, expire after 15 minutes, and revoke all existing login sessions once used.
+- **Password reset** — the Step 1 code and the Step 2 `reset_token` are each single-use with their own expiry (15 min / 10 min). A successful reset revokes all of that user's existing login sessions.
 
 ---
 
@@ -301,7 +304,7 @@ Get the client ID from [Google Cloud Console](https://console.cloud.google.com) 
 
 ## Firebase Phone OTP Setup
 
-Powers `POST /api/auth/otp/verify`, used for both sign-up and login. There is **no separate "send OTP" endpoint** — OTP delivery and verification happen entirely on the client via the Firebase SDK; the backend only verifies the resulting token.
+Powers `POST /api/auth/otp/verify`, used for both sign-up and login. There is **no separate "send OTP" endpoint for this flow** — OTP delivery and verification happen entirely on the client via the Firebase SDK; the backend only verifies the resulting token. (This is unrelated to the email-based Forgot Password OTP above, which the backend generates and sends itself.)
 
 Add to `config/services.php`:
 
@@ -386,7 +389,7 @@ database/
 ├── migrations/
 └── seeders/
 docs/                             # OpenAPI specs
-routes/api.php                    # All 112 endpoints
+routes/api.php                    # All 113 endpoints
 ```
 
 ---
@@ -403,6 +406,7 @@ routes/api.php                    # All 112 endpoints
 | Migration for nullable `password` fails | `composer require doctrine/dbal` — needed for `->change()` in migrations |
 | Firebase OTP returns 401 | Token expired, or `FIREBASE_API_KEY` is missing/wrong in `.env` |
 | Password reset code never arrives | Check `storage/logs/laravel.log` (search "reset code") while `MAIL_MAILER=log`; set a real mailer for production |
+| `reset-password` says "Pehle OTP verify karein" | Step 2 (`verify-otp`) was skipped, or the 6-digit code was sent instead of the `reset_token` it returns |
 | 401 right after a password reset | Expected — resetting a password revokes all of that user's existing tokens. Log in again for a fresh token. |
 
 The middleware alias in `bootstrap/app.php`:
