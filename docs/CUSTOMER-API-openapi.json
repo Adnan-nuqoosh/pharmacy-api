@@ -3,7 +3,7 @@
     "info": {
         "title": "Abwab Al Kheir Pharmacy - CUSTOMER API",
         "description": "Mobile app ki tamam APIs (Figma design ke mutabiq)\n\n## Response Format\nSab responses `{success, message, data}` shape mein hain. Errors (401/403/404/422/429/500) mein extra `errors: []` array bhi hota hai — Laravel ke built-in errors (validation, unauthenticated, etc.) bhi isi standard shape mein convert kiye ja chuke hain, controllers ke bahar bhi.",
-        "version": "4.0.0"
+        "version": "5.0.0"
     },
     "servers": [
         {
@@ -1834,7 +1834,76 @@
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Forgot Password — Step 2: code + naya password",
+                "summary": "Forgot Password — Step 3: naya password set karna",
+                "description": "Step 2 se mila hua reset_token chahiye (6-digit code nahi). Token 10 minute valid hai, ek dafa hi use hota hai.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "example": "user@example.com"
+                                    },
+                                    "reset_token": {
+                                        "type": "string",
+                                        "example": "vrePjHIaSO7LuggEHtXOC6aKgcIJEv0LkbsUHXiOFm8aOHStS87iiaHGJFI1"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "NayaPassword123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "NayaPassword123"
+                                    }
+                                },
+                                "required": [
+                                    "email",
+                                    "reset_token",
+                                    "password",
+                                    "password_confirmation"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset ho gaya, purane tokens revoke ho gaye"
+                    },
+                    "422": {
+                        "description": "reset_token ghalat/expire, ya Step 2 skip kiya gaya",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User nahi mila",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/verify-otp": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Forgot Password — Step 2: OTP verify karna",
+                "description": "6-digit code check karta hai (password abhi nahi maanga). Sahi hone par reset_token deta hai jo Step 3 mein use hota hai. Asal code istemaal hote hi khatam ho jata hai — dobara kaam nahi karega.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -1849,21 +1918,11 @@
                                     "code": {
                                         "type": "string",
                                         "example": "483920"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "example": "NayaPassword123"
-                                    },
-                                    "password_confirmation": {
-                                        "type": "string",
-                                        "example": "NayaPassword123"
                                     }
                                 },
                                 "required": [
                                     "email",
-                                    "code",
-                                    "password",
-                                    "password_confirmation"
+                                    "code"
                                 ]
                             }
                         }
@@ -1871,7 +1930,33 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Password reset ho gaya, purane tokens revoke ho gaye"
+                        "description": "Code verified — reset_token milta hai",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Code verified."
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "reset_token": {
+                                                    "type": "string",
+                                                    "example": "vrePjHIaSO7LuggEHtXOC6aKgcIJEv0LkbsUHXiOFm8aOHStS87iiaHGJFI1"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Code ghalat/expire, ya koi request nahi ki gayi thi",
