@@ -14,12 +14,12 @@ use Illuminate\Support\Str;
 class ForgotPasswordController extends Controller
 {
     /**
-     * POST /api/auth/forgot-password
+     * Step 1 — POST /api/auth/forgot-password
      * Body: { "email": "user@example.com" }
      *
-     * 6-digit code generate kar ke email par bhejta hai.
-     * Security: chahe email exist kare ya na kare, hamesha same success message —
-     * taake koi ye pata na laga sake ke kaunsi email registered hai (user enumeration se bachao).
+     * Generates a 6-digit code and sends it to the user's email address.
+     * Security: The same success message is always returned, regardless of
+     * whether the email address is registered.
      */
     public function sendCode(Request $request): JsonResponse
     {
@@ -33,7 +33,6 @@ class ForgotPasswordController extends Controller
         if ($user) {
             $code = (string) random_int(100000, 999999);
 
-            // Purana code (agar ho) hata kar naya save karein
             DB::table('password_reset_tokens')->where('email', $email)->delete();
             DB::table('password_reset_tokens')->insert([
                 'email'      => $email,
@@ -41,8 +40,8 @@ class ForgotPasswordController extends Controller
                 'created_at' => now(),
             ]);
 
-            // MAIL_MAILER=log ho to code storage/logs/laravel.log mein dikhega (local testing).
-            // Production mein real mailer (smtp/mailgun/ses) .env mein set karein.
+            // When MAIL_MAILER=log, the code will be available in
+            // storage/logs/laravel.log for local testing.
             Mail::raw("Aapka Abwab Al Kheir Pharmacy password reset code: {$code}\nYe code 15 minute tak valid hai.", function ($message) use ($email) {
                 $message->to($email)->subject('Password Reset Code');
             });
@@ -55,18 +54,26 @@ class ForgotPasswordController extends Controller
     }
 
     /**
-     * POST /api/auth/reset-password
-     * Body: { "email": "...", "code": "123456", "password": "...", "password_confirmation": "..." }
+     * Step 2 — POST /api/auth/verify-otp
+     * Body: { "email": "...", "code": "483920" }
+     *
+     * Verifies the code without requesting a new password.
+     * If the code is valid, a "reset_token" is returned for use in the next
+     * reset-password step.
+     *
+     * The original 6-digit code is invalidated after successful verification,
+     * preventing it from being reused or replayed.
      */
-    public function reset(Request $request): JsonResponse
+    public function verifyOtp(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email'    => ['required', 'email'],
-            'code'     => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'email' => ['required', 'email'],
+            'code'  => ['required', 'string'],
         ]);
 
-        $record = DB::table('password_reset_tokens')->where('email', $data['email'])->first();
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $data['email'])
+            ->first();
 
         if (! $record) {
             return response()->json([
@@ -75,9 +82,10 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        // 15 minute expiry
         if (now()->diffInMinutes($record->created_at) > 15) {
-            DB::table('password_reset_tokens')->where('email', $data['email'])->delete();
+            DB::table('password_reset_tokens')
+                ->where('email', $data['email'])
+                ->delete();
 
             return response()->json([
                 'success' => false,
@@ -92,17 +100,96 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        $user = User::where('email', $data['email'])->first();
-        if (! $user) {
-            return response()->json(['success' => false, 'message' => 'User nahi mila.'], 404);
+        // The code is valid. Replace it with a new and separate reset token.
+        // The original 6-digit code can no longer be used.
+        $resetToken = Str::random(60);
+
+        DB::table('password_reset_tokens')
+            ->where('email', $data['email'])
+            ->update([
+                'token'      => Hash::make($resetToken),
+                'created_at' => now(), // Starts a new 10-minute window for Step 3.
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Code verified.',
+            'data'    => ['reset_token' => $resetToken],
+        ]);
+    }
+
+    /**
+     * Step 3 — POST /api/auth/reset-password
+     * Body: {
+     *   "email": "...",
+     *   "reset_token": "...",
+     *   "password": "...",
+     *   "password_confirmation": "..."
+     * }
+     *
+     * This step requires the reset_token received from Step 2 instead of the
+     * 6-digit code.
+     *
+     * The reset token remains valid for 10 minutes and is invalidated after
+     * being used successfully.
+     */
+    public function reset(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email'       => ['required', 'email'],
+            'reset_token' => ['required', 'string'],
+            'password'    => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $data['email'])
+            ->first();
+
+        if (! $record) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pehle OTP verify karein.',
+            ], 422);
         }
 
-        $user->update(['password' => $data['password']]); // 'hashed' cast se khud hash ho jata hai
+        if (now()->diffInMinutes($record->created_at) > 10) {
+            DB::table('password_reset_tokens')
+                ->where('email', $data['email'])
+                ->delete();
 
-        // Code istemaal ho gaya — hata dein
-        DB::table('password_reset_tokens')->where('email', $data['email'])->delete();
+            return response()->json([
+                'success' => false,
+                'message' => 'Session expire ho gaya. Dobara shuru se try karein.',
+            ], 422);
+        }
 
-        // Security: password change hote hi purane saare tokens/sessions revoke
+        if (! Hash::check($data['reset_token'], $record->token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid reset session. Dobara OTP verify karein.',
+            ], 422);
+        }
+
+        $user = User::where('email', $data['email'])->first();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User nahi mila.',
+            ], 404);
+        }
+
+        // The password is automatically hashed through the model's "hashed" cast.
+        $user->update([
+            'password' => $data['password'],
+        ]);
+
+        DB::table('password_reset_tokens')
+            ->where('email', $data['email'])
+            ->delete();
+
+        // Revoke all existing authentication tokens and sessions after the
+        // password has been changed.
         $user->tokens()->delete();
 
         return response()->json([

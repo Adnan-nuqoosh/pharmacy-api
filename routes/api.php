@@ -41,7 +41,7 @@ Route::prefix('auth')->group(function () {
 
     Route::post('/forgot-password', [ForgotPasswordController::class, 'sendCode'])->middleware('throttle:3,1'); // Forgot Password step 1
     Route::post('/reset-password',  [ForgotPasswordController::class, 'reset'])->middleware('throttle:5,1');    // Forgot Password step 2
-
+    Route::post('/verify-otp', [ForgotPasswordController::class, 'verifyOtp'])->middleware('throttle:5,1');
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me',      [AuthController::class, 'me']);
