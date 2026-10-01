@@ -32,6 +32,12 @@ class ProductResource extends Resource
                     ->searchable()
                     ->required(),
 
+                Forms\Components\Select::make('brand_id')
+                    ->label('Brand')
+                    ->relationship('brand', 'name')
+                    ->searchable()
+                    ->preload(),
+
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255)
@@ -50,6 +56,10 @@ class ProductResource extends Resource
                 Forms\Components\FileUpload::make('image')
                     ->label('Product Image')
                     ->image()
+                    ->disk('public')
+                    ->visibility('public')
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize(5120)
                     ->directory('products')
                     ->imageEditor()
                     ->columnSpanFull(),
@@ -99,7 +109,7 @@ class ProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('image')->label(''),
+                Tables\Columns\ImageColumn::make('image')->disk('public')->label(''),
                 Tables\Columns\TextColumn::make('name')->searchable()->limit(35),
                 Tables\Columns\TextColumn::make('category.name')->badge(),
                 Tables\Columns\TextColumn::make('price')
@@ -140,9 +150,9 @@ class ProductResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListProducts::route('/'),
+            'index' => Pages\ListProducts::route('/'),
             'create' => Pages\CreateProduct::route('/create'),
-            'edit'   => Pages\EditProduct::route('/{record}/edit'),
+            'edit' => Pages\EditProduct::route('/{record}/edit'),
         ];
     }
 }

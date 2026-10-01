@@ -10,10 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
-    use HasFactory;
+    use \App\Models\Concerns\HasCatalogImage, HasFactory;
 
     protected $fillable = [
         'category_id',
+        'brand_id',
         'name',
         'slug',
         'description',
@@ -34,16 +35,16 @@ class Product extends Model
     protected function casts(): array
     {
         return [
-            'price'         => 'decimal:2',
-            'rating'        => 'decimal:1',
-            'expiry_date'   => 'date:Y-m-d',
+            'price' => 'decimal:2',
+            'rating' => 'decimal:1',
+            'expiry_date' => 'date:Y-m-d',
             'vat_inclusive' => 'boolean',
-            'is_featured'   => 'boolean',
-            'is_active'     => 'boolean',
+            'is_featured' => 'boolean',
+            'is_active' => 'boolean',
         ];
     }
 
-    protected $appends = ['final_price', 'on_sale'];
+    protected $appends = ['final_price', 'on_sale', 'image_url'];
 
     protected function finalPrice(): Attribute
     {
@@ -55,6 +56,22 @@ class Product extends Model
     protected function onSale(): Attribute
     {
         return Attribute::get(fn () => $this->discount_percent > 0);
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product) {
+            if ($product->brand_id) {
+                $product->brand_name = Brand::whereKey($product->brand_id)->value('name');
+            } elseif ($product->isDirty('brand_id') && ! $product->isDirty('brand_name')) {
+                $product->brand_name = null;
+            }
+        });
     }
 
     public function category(): BelongsTo
@@ -76,7 +93,7 @@ class Product extends Model
         $approved = $this->reviews()->where('is_approved', true);
 
         $this->update([
-            'rating'        => round((float) $approved->avg('rating'), 1),
+            'rating' => round((float) $approved->avg('rating'), 1),
             'reviews_count' => $approved->count(),
         ]);
     }
@@ -99,8 +116,8 @@ class Product extends Model
         for ($star = 5; $star >= 1; $star--) {
             $count = $counts[$star] ?? 0;
             $breakdown[] = [
-                'star'    => $star,
-                'count'   => $count,
+                'star' => $star,
+                'count' => $count,
                 'percent' => $totalReviews > 0 ? round(($count / $totalReviews) * 100) : 0,
             ];
         }

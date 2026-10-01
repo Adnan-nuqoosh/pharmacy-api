@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\CatalogImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +19,7 @@ class AdminProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Product::with('category:id,name,slug');
+        $query = Product::with('category:id,name,slug,icon', 'brand');
 
         if ($search = $request->query('search')) {
             $query->where('name', 'like', "%{$search}%");
@@ -27,6 +27,10 @@ class AdminProductController extends Controller
 
         if ($categoryId = $request->query('category_id')) {
             $query->where('category_id', $categoryId);
+        }
+
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->integer('brand_id'));
         }
 
         if ($request->has('is_active')) {
@@ -38,15 +42,15 @@ class AdminProductController extends Controller
         }
 
         match ($request->query('sort')) {
-            'price_asc'  => $query->orderBy('price'),
+            'price_asc' => $query->orderBy('price'),
             'price_desc' => $query->orderByDesc('price'),
-            'stock_asc'  => $query->orderBy('stock'),
-            default      => $query->latest(),
+            'stock_asc' => $query->orderBy('stock'),
+            default => $query->latest(),
         };
 
         return response()->json([
             'success' => true,
-            'data'    => ['products' => $query->paginate($request->integer('per_page', 15))],
+            'data' => ['products' => $query->paginate($request->integer('per_page', 15))],
         ]);
     }
 
@@ -60,16 +64,12 @@ class AdminProductController extends Controller
 
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
 
-        if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        $product = Product::create($data);
+        $product = CatalogImage::save(new Product, $request, $data, 'products', 'image', []);
 
         return response()->json([
             'success' => true,
             'message' => 'Product created.',
-            'data'    => ['product' => $product->load('category:id,name,slug')],
+            'data' => ['product' => $product->load('category:id,name,slug,icon', 'brand')],
         ], 201);
     }
 
@@ -80,32 +80,24 @@ class AdminProductController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data'    => ['product' => $product->load('category:id,name,slug')],
+            'data' => ['product' => $product->load('category:id,name,slug,icon', 'brand')],
         ]);
     }
 
     /**
-     * POST /api/admin/products/{product}  (with _method=PUT for file upload)
+     * POST /api/admin/products/{product}  (multipart upload; no _method required)
      * ya PATCH /api/admin/products/{product} (JSON only)
      */
     public function update(Request $request, Product $product): JsonResponse
     {
         $data = $this->validated($request, isUpdate: true, productId: $product->id);
 
-        if ($request->hasFile('image')) {
-            // Purani image delete
-            if ($product->image) {
-                Storage::disk('public')->delete($product->image);
-            }
-            $data['image'] = $request->file('image')->store('products', 'public');
-        }
-
-        $product->update($data);
+        CatalogImage::save($product, $request, $data, 'products', 'image', []);
 
         return response()->json([
             'success' => true,
             'message' => 'Product updated.',
-            'data'    => ['product' => $product->fresh()->load('category:id,name,slug')],
+            'data' => ['product' => $product->fresh()->load('category:id,name,slug,icon', 'brand')],
         ]);
     }
 
@@ -114,11 +106,9 @@ class AdminProductController extends Controller
      */
     public function destroy(Product $product): JsonResponse
     {
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
-        }
-
+        $path = $product->image;
         $product->delete();
+        CatalogImage::delete($path, 'products');
 
         return response()->json(['success' => true, 'message' => 'Product deleted.']);
     }
@@ -134,7 +124,7 @@ class AdminProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => $product->is_active ? 'Product activated.' : 'Product deactivated.',
-            'data'    => ['product' => $product],
+            'data' => ['product' => $product],
         ]);
     }
 
@@ -142,20 +132,27 @@ class AdminProductController extends Controller
 
     private function validated(Request $request, bool $isUpdate, ?int $productId = null): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? 'sometimes' : 'required';
+
+        if (! $isUpdate && ! $request->filled('slug')) {
+            $request->merge(['slug' => Str::slug((string) $request->input('name', ''))]);
+        }
 
         return $request->validate([
-            'category_id'      => [$req, 'exists:categories,id'],
-            'name'             => [$req, 'string', 'max:255'],
-            'slug'             => ['sometimes', 'string', 'max:255', Rule::unique('products')->ignore($productId)],
-            'description'      => ['nullable', 'string'],
-            'price'            => [$req, 'numeric', 'min:0'],
+            'category_id' => [$req, 'required', 'exists:categories,id'],
+            'name' => [$req, 'required', 'string', 'max:255'],
+            'slug' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('products')->ignore($productId)],
+            'description' => ['nullable', 'string'],
+            'price' => [$req, 'required', 'numeric', 'min:0'],
             'discount_percent' => ['sometimes', 'integer', 'min:0', 'max:90'],
-            'image'            => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'rating'           => ['sometimes', 'numeric', 'min:0', 'max:5'],
-            'stock'            => ['sometimes', 'integer', 'min:0'],
-            'is_featured'      => ['sometimes', 'boolean'],
-            'is_active'        => ['sometimes', 'boolean'],
+            'image' => CatalogImage::rules(),
+            'remove_image' => ['sometimes', 'boolean'],
+            'brand_id' => ['sometimes', 'nullable', 'integer', 'exists:brands,id'],
+            'brand_name' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'rating' => ['sometimes', 'numeric', 'min:0', 'max:5'],
+            'stock' => ['sometimes', 'integer', 'min:0'],
+            'is_featured' => ['sometimes', 'boolean'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
     }
 }

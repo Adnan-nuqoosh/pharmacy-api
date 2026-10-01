@@ -22,20 +22,24 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Product::query()
-            ->with('category:id,name,slug')
+            ->with('category:id,name,slug,icon', 'brand')
             ->where('is_active', true);
 
         // Search (design ki "Search Medicine & Healthcare Products" bar)
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
         // Category filter (slug se)
         if ($categorySlug = $request->query('category')) {
             $query->whereHas('category', fn ($q) => $q->where('slug', $categorySlug));
+        }
+
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->integer('brand_id'));
         }
 
         // Featured / Sale filters
@@ -48,17 +52,17 @@ class ProductController extends Controller
 
         // Sorting
         match ($request->query('sort')) {
-            'price_asc'  => $query->orderBy('price'),
+            'price_asc' => $query->orderBy('price'),
             'price_desc' => $query->orderByDesc('price'),
-            'rating'     => $query->orderByDesc('rating'),
-            default      => $query->latest(),
+            'rating' => $query->orderByDesc('rating'),
+            default => $query->latest(),
         };
 
         $products = $query->paginate($request->integer('per_page', 12));
 
         return response()->json([
             'success' => true,
-            'data'    => ['products' => $products],
+            'data' => ['products' => $products],
         ]);
     }
 
@@ -68,7 +72,7 @@ class ProductController extends Controller
      */
     public function show(string $slug): JsonResponse
     {
-        $product = Product::with('category:id,name,slug')
+        $product = Product::with('category:id,name,slug,icon', 'brand')
             ->where('slug', $slug)
             ->where('is_active', true)
             ->firstOrFail();

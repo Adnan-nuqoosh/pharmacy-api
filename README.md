@@ -1,3 +1,11 @@
+# Catalog image integration update
+
+Products, categories and brands now accept the `image` upload field and return `image_url`.
+Category `icon` remains supported. Brands include admin CRUD, public listing and product linking.
+
+**Frontend and deployment guide:** [docs/FRONTEND-CATALOG-IMAGES.md](docs/FRONTEND-CATALOG-IMAGES.md).
+Import the updated admin/customer OpenAPI files after deploying and running migrations.
+
 # Abwab Al Kheir Pharmacy — Backend API
 
 Laravel backend for the Abwab Al Kheir Pharmacy mobile app and admin dashboard.

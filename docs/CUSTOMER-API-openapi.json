@@ -2,8 +2,8 @@
     "openapi": "3.0.3",
     "info": {
         "title": "Abwab Al Kheir Pharmacy - CUSTOMER API",
-        "description": "Mobile app ki tamam APIs (Figma design ke mutabiq)\n\n## Response Format\nSab responses `{success, message, data}` shape mein hain. Errors (401/403/404/422/429/500) mein extra `errors: []` array bhi hota hai — Laravel ke built-in errors (validation, unauthenticated, etc.) bhi isi standard shape mein convert kiye ja chuke hain, controllers ke bahar bhi.",
-        "version": "5.0.0"
+        "description": "Mobile app ki tamam APIs (Figma design ke mutabiq)\n\n## Response Format\nSab responses `{success, message, data}` shape mein hain. Errors (401/403/404/422/429/500) mein extra `errors: []` array bhi hota hai — Laravel ke built-in errors (validation, unauthenticated, etc.) bhi isi standard shape mein convert kiye ja chuke hain, controllers ke bahar bhi.\n\nCatalog images: use image multipart file (max 5 MB JPEG/PNG/WebP). Display image_url from responses. See FRONTEND-CATALOG-IMAGES.md. POST updates need no _method override.",
+        "version": "3.1.0"
     },
     "servers": [
         {
@@ -44,6 +44,9 @@
         },
         {
             "name": "Profile"
+        },
+        {
+            "name": "Brands"
         }
     ],
     "paths": {
@@ -316,6 +319,14 @@
                             "type": "integer"
                         },
                         "example": 1
+                    },
+                    {
+                        "name": "brand_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "Filter by brand ID."
                     }
                 ],
                 "responses": {
@@ -1970,6 +1981,92 @@
                     }
                 }
             }
+        },
+        "/brands": {
+            "get": {
+                "tags": [
+                    "Brands"
+                ],
+                "summary": "List active brands",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "brands": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Brand"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/brands/{slug}": {
+            "get": {
+                "tags": [
+                    "Brands"
+                ],
+                "summary": "Active brand and its products",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "brand": {
+                                                    "$ref": "#/components/schemas/Brand"
+                                                },
+                                                "products": {
+                                                    "type": "object",
+                                                    "description": "Paginated active products, each including image_url."
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Brand not found or inactive"
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -2025,6 +2122,118 @@
                         "type": "object"
                     }
                 }
+            },
+            "CatalogImageFields": {
+                "type": "object",
+                "properties": {
+                    "image": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Stored image path; use image_url for display."
+                    },
+                    "image_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true
+                    }
+                }
+            },
+            "Brand": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CatalogImageFields"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "is_active": {
+                                "type": "boolean"
+                            },
+                            "sort_order": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ]
+            },
+            "Category": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CatalogImageFields"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "icon": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "icon_url": {
+                                "type": "string",
+                                "format": "uri",
+                                "nullable": true
+                            }
+                        }
+                    }
+                ]
+            },
+            "Product": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/CatalogImageFields"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "brand_id": {
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "brand_name": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "brand": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/Brand"
+                                    }
+                                ],
+                                "nullable": true
+                            },
+                            "category": {
+                                "$ref": "#/components/schemas/Category"
+                            }
+                        }
+                    }
+                ]
             }
         }
     }

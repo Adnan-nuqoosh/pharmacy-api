@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Support\CatalogImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +25,7 @@ class AdminCategoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => ['categories' => $query->orderBy('sort_order')->get()],
+            'data' => ['categories' => $query->orderBy('sort_order')->get()],
         ]);
     }
 
@@ -38,16 +38,12 @@ class AdminCategoryController extends Controller
 
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
 
-        if ($request->hasFile('icon')) {
-            $data['icon'] = $request->file('icon')->store('categories', 'public');
-        }
-
-        $category = Category::create($data);
+        $category = CatalogImage::save(new Category, $request, $data, 'categories', 'icon', ['icon']);
 
         return response()->json([
             'success' => true,
             'message' => 'Category created.',
-            'data'    => ['category' => $category],
+            'data' => ['category' => $category],
         ], 201);
     }
 
@@ -58,7 +54,7 @@ class AdminCategoryController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data'    => ['category' => $category->loadCount('products')],
+            'data' => ['category' => $category->loadCount('products')],
         ]);
     }
 
@@ -69,19 +65,12 @@ class AdminCategoryController extends Controller
     {
         $data = $this->validated($request, isUpdate: true, categoryId: $category->id);
 
-        if ($request->hasFile('icon')) {
-            if ($category->icon) {
-                Storage::disk('public')->delete($category->icon);
-            }
-            $data['icon'] = $request->file('icon')->store('categories', 'public');
-        }
-
-        $category->update($data);
+        CatalogImage::save($category, $request, $data, 'categories', 'icon', ['icon']);
 
         return response()->json([
             'success' => true,
             'message' => 'Category updated.',
-            'data'    => ['category' => $category->fresh()],
+            'data' => ['category' => $category->fresh()],
         ]);
     }
 
@@ -101,11 +90,9 @@ class AdminCategoryController extends Controller
             ], 422);
         }
 
-        if ($category->icon) {
-            Storage::disk('public')->delete($category->icon);
-        }
-
+        $path = $category->icon;
         $category->delete();
+        CatalogImage::delete($path, 'categories');
 
         return response()->json(['success' => true, 'message' => 'Category deleted.']);
     }
@@ -118,9 +105,9 @@ class AdminCategoryController extends Controller
     public function reorder(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'order'               => ['required', 'array'],
-            'order.*.id'          => ['required', 'exists:categories,id'],
-            'order.*.sort_order'  => ['required', 'integer', 'min:0'],
+            'order' => ['required', 'array'],
+            'order.*.id' => ['required', 'exists:categories,id'],
+            'order.*.sort_order' => ['required', 'integer', 'min:0'],
         ]);
 
         foreach ($data['order'] as $row) {
@@ -134,14 +121,20 @@ class AdminCategoryController extends Controller
 
     private function validated(Request $request, bool $isUpdate, ?int $categoryId = null): array
     {
-        $req = $isUpdate ? 'sometimes|required' : 'required';
+        $req = $isUpdate ? 'sometimes' : 'required';
+
+        if (! $isUpdate && ! $request->filled('slug')) {
+            $request->merge(['slug' => Str::slug((string) $request->input('name', ''))]);
+        }
 
         return $request->validate([
-            'name'       => [$req, 'string', 'max:100'],
-            'slug'       => ['sometimes', 'string', 'max:120', Rule::unique('categories')->ignore($categoryId)],
-            'icon'       => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
+            'name' => [$req, 'required', 'string', 'max:100'],
+            'slug' => ['sometimes', 'required', 'string', 'max:120', Rule::unique('categories')->ignore($categoryId)],
+            'image' => CatalogImage::rules(),
+            'remove_image' => ['sometimes', 'boolean'],
+            'icon' => CatalogImage::rules(),
             'sort_order' => ['sometimes', 'integer', 'min:0'],
-            'is_active'  => ['sometimes', 'boolean'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
     }
 }

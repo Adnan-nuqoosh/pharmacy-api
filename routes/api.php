@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AddressController;
+use App\Http\Controllers\Api\Admin\AdminBrandController;
+use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\Admin\AdminAuthController;
 use App\Http\Controllers\Api\Admin\AdminBannerController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
@@ -54,6 +56,9 @@ Route::get('/categories',        [CategoryController::class, 'index']);
 Route::get('/categories/{slug}', [CategoryController::class, 'show']);
 Route::get('/products',          [ProductController::class, 'index']);
 Route::get('/products/{slug}',   [ProductController::class, 'show']);
+
+Route::get('/brands', [BrandController::class, 'index']);
+Route::get('/brands/{slug}', [BrandController::class, 'show']);
 
 // Reviews (list public, likhna login se)
 Route::get('/products/{slug}/reviews', [ReviewController::class, 'index']);
@@ -152,6 +157,14 @@ Route::prefix('admin')->group(function () {
         Route::patch('/products/{product}',  [AdminProductController::class, 'update']);
         Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
         Route::patch('/products/{product}/toggle-active', [AdminProductController::class, 'toggleActive']);
+
+        // ---- Brands ----
+        Route::get('/brands', [AdminBrandController::class, 'index']);
+        Route::post('/brands', [AdminBrandController::class, 'store']);
+        Route::get('/brands/{brand}', [AdminBrandController::class, 'show']);
+        Route::post('/brands/{brand}', [AdminBrandController::class, 'update']);
+        Route::patch('/brands/{brand}', [AdminBrandController::class, 'update']);
+        Route::delete('/brands/{brand}', [AdminBrandController::class, 'destroy']);
 
         // ---- Categories ----
         Route::get('/categories',               [AdminCategoryController::class, 'index']);
